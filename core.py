@@ -31,7 +31,7 @@ ROLE_PERMISSIONS = {
 
 MAX_ATTEMPTS     = 5
 BAN_MINUTES      = 15
-_failed_attempts = {}   # {username: [datetime, ...]}
+_failed_attempts = {}
 
 # ─── Parol ────────────────────────────────────────────────────────────────────
 
@@ -124,7 +124,6 @@ class FileShareSystem:
 
     def login(self, username: str, password: str, ip: str = "unknown"):
         now = datetime.datetime.now()
-        # Brute-force
         attempts = [t for t in _failed_attempts.get(username, [])
                     if (now - t).total_seconds() < BAN_MINUTES * 60]
         _failed_attempts[username] = attempts
@@ -197,17 +196,17 @@ class FileShareSystem:
         if not u:
             return {}
         files_count  = fetchone("SELECT COUNT(*) AS c FROM files WHERE owner=%s", (username,))
-        shared_count = fetchone(
-            "SELECT COUNT(*) AS c FROM acl WHERE username=%s", (username,))
+        shared_count = fetchone("SELECT COUNT(*) AS c FROM acl WHERE username=%s", (username,))
         return {
             "username":     username,
-            "role":         u.get("role","viewer"),
-            "display_name": u.get("display_name","") or "",
-            "email":        u.get("email","") or "",
-            "last_login":   str(u.get("last_login",""))[:16],
-            "last_ip":      u.get("last_ip",""),
-            "total_files":  (files_count or {}).get("c",0),
-            "shared_files": (shared_count or {}).get("c",0),
+            "role":         u.get("role", "viewer"),
+            "display_name": u.get("display_name", "") or "",
+            "email":        u.get("email", "") or "",
+            "last_login":   str(u.get("last_login", ""))[:16],
+            "last_ip":      u.get("last_ip", ""),
+            "total_files":  (files_count or {}).get("c", 0),
+            "shared_files": (shared_count or {}).get("c", 0),
+            "totp_enabled": bool(u.get("totp_enabled", False)),
         }
 
     # ── Fayllar ───────────────────────────────────────────────────────────────
@@ -276,7 +275,7 @@ class FileShareSystem:
                 "size":        r["size_bytes"],
                 "uploaded_at": str(r["uploaded_at"]),
                 "is_owner":    r["owner"] == username,
-                "permission":  "write" if r["owner"]==username else (r["permission"] or "read"),
+                "permission":  "write" if r["owner"] == username else (r["permission"] or "read"),
             })
         return result
 
@@ -385,11 +384,11 @@ class FileShareSystem:
             "SELECT owner, COUNT(*) AS cnt FROM files GROUP BY owner ORDER BY cnt DESC LIMIT 5"
         )
         return {
-            "users":    users_count,
-            "files":    files_count,
-            "size_mb":  round(int(files_size) / 1024 / 1024, 2),
-            "links":    links_count,
-            "top":      [{"username": r["owner"], "files": r["cnt"]} for r in top_users],
+            "users":   users_count,
+            "files":   files_count,
+            "size_mb": round(int(files_size) / 1024 / 1024, 2),
+            "links":   links_count,
+            "top":     [{"username": r["owner"], "files": r["cnt"]} for r in top_users],
         }
 
     def list_users(self) -> list:
@@ -436,7 +435,7 @@ class FileShareSystem:
         u = fetchone("SELECT totp_enabled, totp_secret FROM users WHERE username=%s", (username,))
         if not u or not u.get("totp_enabled"):
             return True
-        return totp_verify(u.get("totp_secret",""), code)
+        return totp_verify(u.get("totp_secret", ""), code)
 
     # ── Email OTP ─────────────────────────────────────────────────────────────
 
