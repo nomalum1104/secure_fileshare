@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="max-width:440px; margin:60px auto;">
+  <div class="card">
+    <div class="card-title">📝 Ro'yxatdan o'tish</div>
+    <form method="POST" id="regForm">
+      {{ csrf() }}
+
+      <!-- Login -->
+      <div class="form-group">
+        <label>Login</label>
+        <input type="text" name="username" id="username" required autofocus
+               placeholder="faqat lotin harflari, raqam, _"
+               minlength="3" maxlength="32"
+               oninput="checkUsername(this.value)">
+        <div id="username-hint" style="font-size:11px; margin-top:4px; color:var(--muted);"></div>
+      </div>
+
+      <!-- Parol -->
+      <div class="form-group">
+        <label>Parol</label>
+        <div style="position:relative;">
+          <input type="password" name="password" id="password" required
+                 placeholder="Kamida 8 belgi"
+                 oninput="checkStrength(this.value)"
+                 style="padding-right:44px;">
+          <button type="button" onclick="togglePw('password', this)"
+                  style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                         background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;">👁</button>
+        </div>
+
+        <!-- Kuch ko'rsatgichi -->
+        <div style="margin-top:8px;">
+          <div style="height:4px; background:var(--bg3); border-radius:99px; overflow:hidden;">
+            <div id="strength-bar" style="height:100%; width:0%; transition:all 0.3s; border-radius:99px;"></div>
+          </div>
+          <div id="strength-text" style="font-size:11px; margin-top:4px; color:var(--muted);">Parol kiriting</div>
+        </div>
+
+        <!-- Talablar -->
+        <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+          <div id="req-len"    class="req">✗ Kamida 8 belgi</div>
+          <div id="req-upper"  class="req">✗ Katta harf (A-Z)</div>
+          <div id="req-lower"  class="req">✗ Kichik harf (a-z)</div>
+          <div id="req-number" class="req">✗ Raqam (0-9)</div>
+          <div id="req-special"class="req">✗ Maxsus belgi (!@#...)</div>
+        </div>
+      </div>
+
+      <!-- Parolni tasdiqlash -->
+      <div class="form-group">
+        <label>Parolni tasdiqlang</label>
+        <div style="position:relative;">
+          <input type="password" name="confirm_password" id="confirm_password" required
+                 placeholder="Parolni qayta kiriting"
+                 oninput="checkMatch()"
+                 style="padding-right:44px;">
+          <button type="button" onclick="togglePw('confirm_password', this)"
+                  style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                         background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;">👁</button>
+        </div>
+        <div id="match-hint" style="font-size:11px; margin-top:4px;"></div>
+      </div>
+
+      <button type="submit" id="submit-btn" class="btn btn-primary" style="width:100%;" disabled>
+        Ro'yxatdan o'tish
+      </button>
+    </form>
+    <hr class="divider">
+    <p style="text-align:center; color:var(--muted); font-size:13px;">
+      Akkaunt bor? <a href="/login">Kirish</a>
+    </p>
+  </div>
+</div>
+
+<style>
+  .req { font-size: 11px; color: var(--muted); padding: 2px 0; transition: color 0.2s; }
+  .req.ok { color: var(--green); }
+  .req.ok::first-letter { content: '✓'; }
+</style>
+
+<script>
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function checkUsername(val) {
+  const hint = document.getElementById('username-hint');
+  const banned = ['admin','root','superuser','administrator'];
+  if (val.length < 3) {
+    hint.style.color = 'var(--red)'; hint.textContent = '✗ Kamida 3 ta belgi';
+  } else if (!/^[a-zA-Z0-9_]+$/.test(val)) {
+    hint.style.color = 'var(--red)'; hint.textContent = '✗ Faqat lotin harflari, raqam, _';
+  } else if (banned.includes(val.toLowerCase())) {
+    hint.style.color = 'var(--red)'; hint.textContent = '✗ Bu login band';
+  } else {
+    hint.style.color = 'var(--green)'; hint.textContent = '✓ Login mos';
+  }
+  updateSubmit();
+}
+
+function checkStrength(pw) {
+  const reqs = {
+    len:     pw.length >= 8,
+    upper:   /[A-Z]/.test(pw),
+    lower:   /[a-z]/.test(pw),
+    number:  /[0-9]/.test(pw),
+    special: /[!@#$%^&*()\-_=+\[\]{}|;:,.<>?]/.test(pw),
+  };
+
+  const setReq = (id, ok) => {
+    const el = document.getElementById('req-' + id);
+    el.className = 'req' + (ok ? ' ok' : '');
+    el.textContent = (ok ? '✓ ' : '✗ ') + el.textContent.slice(2);
+  };
+  setReq('len',     reqs.len);
+  setReq('upper',   reqs.upper);
+  setReq('lower',   reqs.lower);
+  setReq('number',  reqs.number);
+  setReq('special', reqs.special);
+
+  const score = Object.values(reqs).filter(Boolean).length;
+  const bar   = document.getElementById('strength-bar');
+  const txt   = document.getElementById('strength-text');
+  const colors = ['', '#ef4444','#f59e0b','#f59e0b','#10b981','#6366f1'];
+  const labels = ['', '😟 Juda zaif','😐 Zaif','🙂 O\'rtacha','😊 Kuchli','🔒 Juda kuchli'];
+  bar.style.width   = (score * 20) + '%';
+  bar.style.background = colors[score] || '#ef4444';
+  txt.textContent   = pw ? labels[score] : 'Parol kiriting';
+  txt.style.color   = colors[score] || 'var(--muted)';
+
+  updateSubmit();
+}
+
+function checkMatch() {
+  const pw  = document.getElementById('password').value;
+  const cpw = document.getElementById('confirm_password').value;
+  const hint = document.getElementById('match-hint');
+  if (!cpw) { hint.textContent = ''; return; }
+  if (pw === cpw) {
+    hint.style.color = 'var(--green)'; hint.textContent = '✓ Parollar mos';
+  } else {
+    hint.style.color = 'var(--red)'; hint.textContent = '✗ Parollar mos emas';
+  }
+  updateSubmit();
+}
+
+function updateSubmit() {
+  const pw   = document.getElementById('password').value;
+  const cpw  = document.getElementById('confirm_password').value;
+  const user = document.getElementById('username').value;
+  const banned = ['admin','root','superuser','administrator'];
+
+  const allReqs = pw.length >= 8 &&
+    /[A-Z]/.test(pw) && /[a-z]/.test(pw) &&
+    /[0-9]/.test(pw) && /[!@#$%^&*()\-_=+\[\]{}|;:,.<>?]/.test(pw);
+
+  const userOk = user.length >= 3 &&
+    /^[a-zA-Z0-9_]+$/.test(user) &&
+    !banned.includes(user.toLowerCase());
+
+  const btn = document.getElementById('submit-btn');
+  const ok  = allReqs && pw === cpw && userOk;
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '0.5';
+  btn.style.cursor  = ok ? 'pointer' : 'not-allowed';
+}
+
+// Form yuborishdan oldin tekshirish
+document.getElementById('regForm').addEventListener('submit', function(e) {
+  const pw  = document.getElementById('password').value;
+  const cpw = document.getElementById('confirm_password').value;
+  if (pw !== cpw) { e.preventDefault(); alert('Parollar mos emas!'); }
+});
+</script>
+
+{% endblock %}

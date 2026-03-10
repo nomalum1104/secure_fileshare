@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="font-family:'Syne',sans-serif; font-size:20px; font-weight:800; margin-bottom:24px;">👤 Profil sozlamalari</h2>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+
+  <!-- Left: Profile info -->
+  <div>
+
+    <!-- Avatar & info card -->
+    <div class="card" style="text-align:center; padding:32px; margin-bottom:20px;">
+      <div style="width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg,#6366f1,#ec4899); display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:800; margin:0 auto 16px; font-family:'Syne',sans-serif;">
+        {{ (profile.display_name or profile.username)[0].upper() }}
+      </div>
+      <div style="font-family:'Syne',sans-serif; font-size:18px; font-weight:700;">
+        {{ profile.display_name or profile.username }}
+      </div>
+      <div style="color:var(--muted); font-size:13px; margin-top:4px;">@{{ profile.username }}</div>
+      <div style="margin-top:12px;">
+        {% if profile.role == 'admin' %}
+          <span class="badge badge-red">admin</span>
+        {% elif profile.role == 'editor' %}
+          <span class="badge badge-green">editor</span>
+        {% else %}
+          <span class="badge badge-yellow">viewer</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Stats mini -->
+    <div class="card">
+      <div class="card-title">📊 Mening statistikam</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div style="text-align:center; padding:16px; background:var(--bg3); border-radius:8px;">
+          <div style="font-size:28px; font-weight:800; color:var(--accent); font-family:'Syne',sans-serif;">{{ profile.total_files }}</div>
+          <div style="color:var(--muted); font-size:12px; margin-top:4px;">Yuklagan fayllar</div>
+        </div>
+        <div style="text-align:center; padding:16px; background:var(--bg3); border-radius:8px;">
+          <div style="font-size:28px; font-weight:800; color:var(--green); font-family:'Syne',sans-serif;">{{ profile.shared_files }}</div>
+          <div style="color:var(--muted); font-size:12px; margin-top:4px;">Ulashilgan fayllar</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right: Edit forms -->
+  <div>
+
+    <!-- Edit profile info -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-title">✏️ Ma'lumotlarni tahrirlash</div>
+      <form method="POST" action="/profile">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="update_profile">
+        <div class="form-group">
+          <label>Ism (ko'rsatiladigan nom)</label>
+          <input type="text" name="display_name"
+                 value="{{ profile.display_name }}"
+                 placeholder="Masalan: Alisher Karimov">
+        </div>
+        <div class="form-group">
+          <label>Email manzil</label>
+          <input type="email" name="email"
+                 value="{{ profile.email }}"
+                 placeholder="email@example.com">
+        </div>
+        <button type="submit" class="btn btn-primary">💾 Saqlash</button>
+      </form>
+    </div>
+
+    <!-- Change password -->
+    <div class="card">
+      <div class="card-title">🔑 Parolni o'zgartirish</div>
+      <form method="POST" action="/profile">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="change_password">
+        <div class="form-group">
+          <label>Hozirgi parol</label>
+          <input type="password" name="old_password" placeholder="••••••••" required>
+        </div>
+        <div class="form-group">
+          <label>Yangi parol</label>
+          <input type="password" name="new_password" placeholder="Kamida 6 ta belgi" required minlength="6">
+        </div>
+        <div class="form-group">
+          <label>Yangi parolni tasdiqlang</label>
+          <input type="password" name="confirm_password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary">🔒 Parolni o'zgartirish</button>
+      </form>
+    </div>
+
+    <!-- 2FA -->
+    <div class="card" style="margin-top:0;
+      {% if totp_enabled %}background:rgba(16,185,129,0.05); border-color:rgba(16,185,129,0.2);
+      {% else %}background:rgba(99,102,241,0.05); border-color:rgba(99,102,241,0.2);{% endif %}">
+      <div class="card-title">
+        🔐 Ikki bosqichli autentifikatsiya (2FA)
+        {% if totp_enabled %}
+          <span class="badge badge-green" style="margin-left:8px;">✓ Yoqilgan</span>
+        {% else %}
+          <span class="badge badge-yellow" style="margin-left:8px;">O'chiq</span>
+        {% endif %}
+      </div>
+      {% if totp_enabled %}
+        <p style="color:var(--muted); font-size:13px; margin-bottom:16px;">
+          2FA yoqilgan. Har safar kirishda Google Authenticator kodi so'raladi.
+        </p>
+        <form method="POST" action="/2fa/disable"
+              onsubmit="return confirm('2FA ni ochirish xavfsizlikni kamaytiradi. Davom etasizmi?')">
+          {{ csrf() }}
+          <div style="display:flex; gap:12px; align-items:flex-end;">
+            <div style="flex:1;">
+              <label style="font-size:12px; color:var(--muted);">Tasdiqlash uchun kod kiriting</label>
+              <input type="text" name="code" maxlength="6" placeholder="000000"
+                     oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+                     style="font-size:18px; letter-spacing:8px; text-align:center;">
+            </div>
+            <button type="submit" class="btn btn-danger">O'chirish</button>
+          </div>
+        </form>
+      {% else %}
+        <p style="color:var(--muted); font-size:13px; margin-bottom:16px;">
+          2FA yoqilmagan. Yoqish uchun Google Authenticator ilovasi kerak bo'ladi.
+        </p>
+        <a href="/2fa/setup" class="btn btn-primary">🔐 2FA ni yoqish</a>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

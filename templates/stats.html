@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="font-family:'Syne',sans-serif; font-size:20px; font-weight:800; margin-bottom:20px;">📊 Statistika</h2>
+
+<!-- Main stats cards -->
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:24px;">
+
+  <div class="card" style="text-align:center; padding:20px; margin:0;">
+    <div style="font-size:36px; font-weight:800; color:var(--accent); font-family:'Syne',sans-serif;">{{ stats.total_files }}</div>
+    <div style="color:var(--muted); font-size:13px; margin-top:4px;">📁 Jami fayllar</div>
+  </div>
+
+  <div class="card" style="text-align:center; padding:20px; margin:0;">
+    <div style="font-size:36px; font-weight:800; color:var(--green); font-family:'Syne',sans-serif;">{{ stats.total_users }}</div>
+    <div style="color:var(--muted); font-size:13px; margin-top:4px;">👥 Foydalanuvchilar</div>
+  </div>
+
+  <div class="card" style="text-align:center; padding:20px; margin:0;">
+    <div style="font-size:36px; font-weight:800; color:var(--yellow); font-family:'Syne',sans-serif;">{{ stats.active_links }}</div>
+    <div style="color:var(--muted); font-size:13px; margin-top:4px;">🔗 Faol havolalar</div>
+  </div>
+
+  <div class="card" style="text-align:center; padding:20px; margin:0;">
+    <div style="font-size:36px; font-weight:800; color:var(--accent2); font-family:'Syne',sans-serif;">{{ stats.recent_uploads }}</div>
+    <div style="color:var(--muted); font-size:13px; margin-top:4px;">📤 So'nggi 7 kun</div>
+  </div>
+
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+
+  <!-- Top uploaders -->
+  <div class="card">
+    <div class="card-title">🏆 Eng faol foydalanuvchilar</div>
+    {% if stats.top_uploaders %}
+    <table>
+      <thead><tr><th>#</th><th>Foydalanuvchi</th><th>Fayllar</th></tr></thead>
+      <tbody>
+      {% for user, count in stats.top_uploaders %}
+        <tr>
+          <td style="color:var(--muted);">{{ loop.index }}</td>
+          <td><strong>{{ user }}</strong></td>
+          <td>
+            <span class="badge badge-blue">{{ count }} ta</span>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p style="color:var(--muted); font-size:13px;">Hali fayllar yo'q</p>
+    {% endif %}
+  </div>
+
+  <!-- Role distribution -->
+  <div class="card">
+    <div class="card-title">👤 Rollar bo'yicha</div>
+    {% for role, count in stats.role_counts.items() %}
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border);">
+        <div style="display:flex; align-items:center; gap:8px;">
+          {% if role == 'admin' %}
+            <span class="badge badge-red">admin</span>
+          {% elif role == 'editor' %}
+            <span class="badge badge-green">editor</span>
+          {% else %}
+            <span class="badge badge-yellow">viewer</span>
+          {% endif %}
+        </div>
+        <strong>{{ count }} ta</strong>
+      </div>
+    {% endfor %}
+
+    <div style="margin-top:16px;">
+      <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Jami hajm</div>
+      <div style="font-size:20px; font-weight:700; color:var(--text);">
+        {% if stats.total_size > 1048576 %}
+          {{ "%.1f"|format(stats.total_size / 1048576) }} MB
+        {% elif stats.total_size > 1024 %}
+          {{ "%.1f"|format(stats.total_size / 1024) }} KB
+        {% else %}
+          {{ stats.total_size }} B
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

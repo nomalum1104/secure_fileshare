@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="max-width:420px; margin:70px auto;">
+  <div class="card">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div style="font-size:44px; margin-bottom:10px;">📧</div>
+      <h2 style="font-family:'Syne',sans-serif; font-size:22px; font-weight:800;">
+        Email OTP orqali kirish
+      </h2>
+      <p style="color:var(--muted); font-size:13px; margin-top:6px;">
+        Emailingizga bir martalik kod yuboriladi
+      </p>
+    </div>
+
+    {% if not otp_pending %}
+    <!-- Step 1: Login + parol -->
+    <form method="POST">
+      {{ csrf() }}
+      <input type="hidden" name="action" value="request">
+      <div class="form-group">
+        <label>Login</label>
+        <input type="text" name="username" required autofocus placeholder="loginингиз">
+      </div>
+      <div class="form-group">
+        <label>Parol</label>
+        <input type="password" name="password" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">
+        📧 OTP kodi yuborish
+      </button>
+    </form>
+
+    {% else %}
+    <!-- Step 2: OTP kodi -->
+    <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2);
+                border-radius:8px; padding:12px; margin-bottom:20px; font-size:13px; text-align:center;">
+      ✅ Email manzilingizga <strong>{{ session.get('otp_email', 'email') }}</strong> ga kod yuborildi
+    </div>
+
+    <form method="POST">
+      {{ csrf() }}
+      <input type="hidden" name="action" value="verify">
+      <div class="form-group">
+        <label>OTP kodi (6 ta raqam)</label>
+        <input type="text" name="code" id="otp-code"
+               maxlength="6" placeholder="000000"
+               autofocus autocomplete="off" required
+               oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+               style="font-size:28px; letter-spacing:12px; text-align:center; padding:14px;">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%; margin-bottom:10px;">
+        Tasdiqlash →
+      </button>
+    </form>
+
+    <form method="POST">
+      {{ csrf() }}
+      <input type="hidden" name="action" value="resend">
+      <button type="submit" class="btn btn-secondary" style="width:100%; font-size:12px;">
+        🔄 Kodni qayta yuborish
+      </button>
+    </form>
+
+    <script>
+      document.getElementById('otp-code').addEventListener('input', function() {
+        if (this.value.length === 6) this.closest('form').submit();
+      });
+    </script>
+    {% endif %}
+
+    <hr class="divider">
+    <div style="display:flex; justify-content:space-between; font-size:13px;">
+      <a href="/login" style="color:var(--muted);">← Oddiy kirish</a>
+      <a href="/register" style="color:var(--muted);">Ro'yxatdan o'tish</a>
+    </div>
+
+    <!-- Demo rejim tushuntirish -->
+    <div style="margin-top:16px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2);
+                border-radius:8px; padding:12px; font-size:12px; color:var(--muted);">
+      🧪 <strong style="color:var(--yellow);">Demo rejim:</strong>
+      SMTP sozlanmagan bo'lsa, OTP kodi <strong>konsolda</strong> (VS Code terminalida) ko'rinadi.
+      Real email uchun <code>SMTP_USER</code> va <code>SMTP_PASS</code> muhit o'zgaruvchilarini sozlang.
+    </div>
+  </div>
+</div>
+
+{% endblock %}

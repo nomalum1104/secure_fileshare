@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="font-family:'Syne',sans-serif; font-size:20px; font-weight:800; margin-bottom:24px;">👥 Foydalanuvchilarni boshqarish</h2>
+
+<div class="card">
+  <div class="card-title">Barcha foydalanuvchilar</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Login</th>
+        <th>Ism</th>
+        <th>Hozirgi rol</th>
+        <th>Rolni o'zgartirish</th>
+        <th>Parolni o'zgartirish</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td><strong>{{ u.username }}</strong>
+          {% if u.username == username %}
+            <span style="color:var(--muted); font-size:11px;">(siz)</span>
+          {% endif %}
+        </td>
+        <td style="color:var(--muted);">{{ u.display_name or '—' }}</td>
+        <td>
+          {% if u.role == 'admin' %}
+            <span class="badge badge-red">admin</span>
+          {% elif u.role == 'editor' %}
+            <span class="badge badge-green">editor</span>
+          {% else %}
+            <span class="badge badge-yellow">viewer</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if u.username != username %}
+          <form method="POST" action="/admin/change_role" style="display:flex; gap:8px; align-items:center;">
+            {{ csrf() }}
+            <input type="hidden" name="target_user" value="{{ u.username }}">
+            <select name="new_role" style="padding:5px 8px; width:110px;">
+              <option value="viewer" {% if u.role=='viewer' %}selected{% endif %}>viewer</option>
+              <option value="editor" {% if u.role=='editor' %}selected{% endif %}>editor</option>
+              <option value="admin"  {% if u.role=='admin'  %}selected{% endif %}>admin</option>
+            </select>
+            <button type="submit" class="btn btn-secondary btn-sm"
+                    onclick="return confirm('{{ u.username }} rolini ozgartirish?')">Saqlash</button>
+          </form>
+          {% else %}
+            <span style="color:var(--muted); font-size:12px;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if u.username != username %}
+          <form method="POST" action="/admin/change_password"
+                style="display:flex; gap:6px; align-items:center;"
+                onsubmit="return confirm('{{ u.username }} parolini ozgartirish?')">
+            {{ csrf() }}
+            <input type="hidden" name="target_user" value="{{ u.username }}">
+            <input type="password" name="new_password" placeholder="Yangi parol" required minlength="6" style="width:130px; padding:6px 10px;">
+            <input type="password" name="confirm_password" placeholder="Tasdiqlash" required minlength="6" style="width:120px; padding:6px 10px;">
+            <button type="submit" class="btn btn-danger btn-sm">O'zgartirish</button>
+          </form>
+          {% else %}
+            <span style="color:var(--muted); font-size:12px;">Profil orqali</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="background:rgba(99,102,241,0.05); border-color:rgba(99,102,241,0.2);">
+  <div class="card-title">🔑 Rollar va huquqlar</div>
+  <table>
+    <thead>
+      <tr><th>Rol</th><th>Yuklash</th><th>Ko'rish</th><th>O'chirish</th><th>Ulashish</th><th>Loglar</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-red">admin</span></td>
+        <td style="color:var(--green);">✅</td><td style="color:var(--green);">✅</td>
+        <td style="color:var(--green);">✅</td><td style="color:var(--green);">✅</td>
+        <td style="color:var(--green);">✅</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">editor</span></td>
+        <td style="color:var(--green);">✅</td><td style="color:var(--green);">✅</td>
+        <td style="color:var(--yellow);">⚠️ o'ziniki</td><td style="color:var(--green);">✅</td>
+        <td style="color:var(--red);">❌</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-yellow">viewer</span></td>
+        <td style="color:var(--red);">❌</td><td style="color:var(--green);">✅</td>
+        <td style="color:var(--red);">❌</td><td style="color:var(--red);">❌</td>
+        <td style="color:var(--red);">❌</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

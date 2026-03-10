@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="font-family:'Syne',sans-serif; font-size:20px; font-weight:800; margin-bottom:20px;">🔍 Fayllarni qidirish</h2>
+
+<div class="card">
+  <form method="GET" action="/search">
+    <div style="display:flex; gap:12px;">
+      <input type="text" name="q" value="{{ query }}" placeholder="Fayl nomi yoki egasi bo'yicha qidiring..." autofocus style="flex:1;">
+      <button type="submit" class="btn btn-primary">Qidirish</button>
+      {% if query %}<a href="/search" class="btn btn-secondary">Tozalash</a>{% endif %}
+    </div>
+  </form>
+</div>
+
+{% if query %}
+<div class="card">
+  <div class="card-title">
+    Natijalar: <span style="color:var(--accent);">{{ results|length }}</span> ta fayl topildi
+    {% if query %} — "<span style="color:var(--yellow);">{{ query }}</span>" bo'yicha{% endif %}
+  </div>
+
+  {% if results %}
+  <table>
+    <thead>
+      <tr><th>Fayl</th><th>Egasi</th><th>Huquq</th><th>Hajm</th><th>Sana</th><th>Amallar</th></tr>
+    </thead>
+    <tbody>
+    {% for f in results %}
+      <tr>
+        <td>
+          <strong>{{ f.name }}</strong>
+        </td>
+        <td style="color:var(--muted);">{{ f.owner }}</td>
+        <td>
+          {% if f.is_owner %}
+            <span class="badge badge-blue">owner</span>
+          {% elif f.permission == 'write' %}
+            <span class="badge badge-green">write</span>
+          {% else %}
+            <span class="badge badge-yellow">read</span>
+          {% endif %}
+        </td>
+        <td style="color:var(--muted);">{{ f.size }} B</td>
+        <td style="color:var(--muted); font-size:12px;">{{ f.uploaded_at[:16].replace('T',' ') }}</td>
+        <td>
+          <a href="/download/{{ f.name }}" class="btn btn-secondary btn-sm">⬇ Yuklab olish</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div style="text-align:center; padding:40px; color:var(--muted);">
+      <div style="font-size:40px; margin-bottom:12px;">🔍</div>
+      <p>"<strong>{{ query }}</strong>" bo'yicha hech narsa topilmadi</p>
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="font-family:'Syne',sans-serif; font-size:20px; font-weight:800; margin-bottom:20px;">
+  📋 Полный журнал аудита
+</h2>
+
+<div class="card">
+  {% for line in logs %}
+    <div class="log-line
+      {% if 'DENIED' in line or 'FAIL' in line %}denied
+      {% elif 'UPLOAD' in line or 'GRANT' in line or 'LOGIN_OK' in line %}ok
+      {% elif 'DELETE' in line or 'REVOKE' in line %}
+      {% endif %}" style="padding:6px 0;">
+      {{ line }}
+    </div>
+  {% else %}
+    <p style="color:var(--muted);">Журнал пуст</p>
+  {% endfor %}
+</div>
+
+{% endblock %}

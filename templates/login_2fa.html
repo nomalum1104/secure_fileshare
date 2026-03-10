@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="max-width:400px; margin:80px auto;">
+  <div class="card" style="text-align:center;">
+
+    <div style="font-size:48px; margin-bottom:12px;">🔐</div>
+    <h2 style="font-family:'Syne',sans-serif; font-size:22px; font-weight:800; margin-bottom:6px;">
+      Ikki bosqichli tekshiruv
+    </h2>
+    <p style="color:var(--muted); font-size:13px; margin-bottom:24px;">
+      Google Authenticator ilovasidagi 6 raqamli kodni kiriting
+    </p>
+
+    <form method="POST">
+      {{ csrf() }}
+      <div class="form-group" style="text-align:left;">
+        <label>Tasdiqlash kodi</label>
+        <input type="text" name="code" id="code"
+               maxlength="6" placeholder="000000"
+               autofocus autocomplete="off" required
+               oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+               style="font-size:28px; letter-spacing:12px; text-align:center; padding:14px;">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%; margin-top:8px;">
+        Tasdiqlash →
+      </button>
+    </form>
+
+    <hr class="divider">
+    <a href="/login" style="color:var(--muted); font-size:13px;">← Boshqa akkaunt bilan kirish</a>
+
+    <div style="margin-top:20px; background:var(--bg3); border-radius:8px; padding:14px; font-size:12px; color:var(--muted); text-align:left;">
+      💡 <strong>Eslatma:</strong> Kod 30 soniyada yangilanadi.
+      Agar telefon yo'q bo'lsa — adminга murojaat qiling.
+    </div>
+  </div>
+</div>
+
+<script>
+  // 6 ta raqam kiritilsa avtomatik yuborish
+  document.getElementById('code').addEventListener('input', function() {
+    if (this.value.length === 6) {
+      this.closest('form').submit();
+    }
+  });
+</script>
+
+{% endblock %}
