@@ -1,6 +1,6 @@
 """
 Secure File Sharing System — Web Interface
-Запуск: python app.py
+Production: PostgreSQL + S3/R2
 """
 
 from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash, jsonify, abort
@@ -11,9 +11,7 @@ from functools import wraps
 from core import FileShareSystem
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)  # har safar yangi kalit — xavfsizroq
-
-# ─── Session timeout: 30 daqiqa ──────────────────────────────────────────────
+app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 app.config["PERMANENT_SESSION_LIFETIME"] = datetime.timedelta(minutes=30)
 
 system = FileShareSystem()
@@ -31,7 +29,6 @@ def require_login(f):
     def wrapper(*args, **kwargs):
         if not current_user():
             return redirect(url_for("login"))
-        # Session timeout tekshiruvi
         last_active = session.get("last_active")
         if last_active:
             diff = (datetime.datetime.now() - datetime.datetime.fromisoformat(last_active)).total_seconds()
@@ -43,8 +40,6 @@ def require_login(f):
         session.permanent = True
         return f(*args, **kwargs)
     return wrapper
-
-# ─── CSRF himoya ─────────────────────────────────────────────────────────────
 
 def generate_csrf_token():
     if "csrf_token" not in session:
@@ -74,11 +69,9 @@ def login():
         check_csrf()
         username = request.form["username"]
         password = request.form["password"]
-        ip = get_ip()
-        ok, msg = system.login(username, password, ip)
+        ok, msg = system.login(username, password, get_ip())
         if ok:
             if system.needs_2fa(username):
-                # Parol to'g'ri, lekin 2FA kerak — vaqtincha sessiya
                 session["2fa_pending"] = username
                 session["last_active"] = datetime.datetime.now().isoformat()
                 return redirect(url_for("login_2fa"))
@@ -105,18 +98,14 @@ def login_2fa():
             session.permanent = True
             generate_csrf_token()
             return redirect(url_for("dashboard"))
-        else:
-            flash("❌ Noto'g'ri 2FA kod. Ilovadagi kodni tekshiring.", "error")
+        flash("❌ Noto'g'ri 2FA kod.", "error")
     return render_template("login_2fa.html")
-
-# ─── Email OTP Login ──────────────────────────────────────────────────────────
 
 @app.route("/login/otp", methods=["GET", "POST"])
 def login_otp():
     if request.method == "POST":
         check_csrf()
         action = request.form.get("action")
-
         if action == "request":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "").strip()
@@ -125,13 +114,12 @@ def login_otp():
                 ok2, msg2, demo_code = system.send_email_otp(username)
                 flash(msg2, "success" if ok2 else "error")
                 if demo_code:
-                    flash(f"🧪 Demo rejim — OTP kodi: {demo_code}", "success")
+                    flash(f"🧪 Demo OTP: {demo_code}", "success")
                 if ok2:
                     session["otp_pending"] = username
                     return redirect(url_for("login_otp"))
             else:
                 flash(msg, "error")
-
         elif action == "verify":
             pending = session.get("otp_pending")
             if not pending:
@@ -146,15 +134,13 @@ def login_otp():
                 generate_csrf_token()
                 return redirect(url_for("dashboard"))
             flash(msg, "error")
-
         elif action == "resend":
             pending = session.get("otp_pending")
             if pending:
                 ok, msg, demo_code = system.send_email_otp(pending)
                 flash(msg, "success" if ok else "error")
                 if demo_code:
-                    flash(f"🧪 Demo: OTP = {demo_code}", "success")
-
+                    flash(f"🧪 Demo OTP: {demo_code}", "success")
     otp_pending = session.get("otp_pending")
     return render_template("login_otp.html", otp_pending=otp_pending)
 
@@ -164,7 +150,6 @@ def register():
         check_csrf()
         username = request.form["username"]
         password = request.form["password"]
-        # Har doim viewer — rol faqat admin beradi
         ok, msg = system.register(username, password, "viewer")
         flash(msg, "success" if ok else "error")
         if ok:
@@ -181,13 +166,13 @@ def logout():
 @app.route("/dashboard")
 @require_login
 def dashboard():
-    files = system.list_files(current_user())
-    logs  = system.get_logs(limit=10)
-    user  = system.users.get(current_user(), {})
+    files   = system.list_files(current_user())
+    logs    = system.get_logs(limit=10)
+    profile = system.get_profile(current_user())
     return render_template("dashboard.html",
                            files=files,
                            logs=logs,
-                           user=user,
+                           user=profile,
                            username=current_user())
 
 # ─── File Operations ─────────────────────────────────────────────────────────
@@ -198,7 +183,7 @@ def upload():
     check_csrf()
     f = request.files.get("file")
     if not f or f.filename == "":
-        flash("Файл не выбран", "error")
+        flash("Fayl tanlanmadi", "error")
         return redirect(url_for("dashboard"))
     ok, msg = system.upload_file(current_user(), f.filename, f.read())
     flash(msg, "success" if ok else "error")
@@ -207,12 +192,12 @@ def upload():
 @app.route("/download/<filename>")
 @require_login
 def download(filename):
-    ok, result = system.download_file(current_user(), filename)
+    ok, msg, data = system.download_file(current_user(), filename)
     if not ok:
-        flash(result, "error")
+        flash(msg, "error")
         return redirect(url_for("dashboard"))
     import io
-    return send_file(io.BytesIO(result), download_name=filename, as_attachment=True)
+    return send_file(io.BytesIO(data), download_name=filename, as_attachment=True)
 
 @app.route("/delete/<filename>", methods=["POST"])
 @require_login
@@ -222,17 +207,29 @@ def delete(filename):
     flash(msg, "success" if ok else "error")
     return redirect(url_for("dashboard"))
 
-# ─── Access Control ──────────────────────────────────────────────────────────
+# ─── Permissions ─────────────────────────────────────────────────────────────
+
+@app.route("/permissions/<filename>")
+@require_login
+def permissions(filename):
+    acl      = system.get_acl(current_user(), filename)
+    all_users = system.list_users()
+    users    = [u["username"] for u in all_users if u["username"] != current_user()]
+    return render_template("permissions.html",
+                           filename=filename,
+                           acl=acl,
+                           users=users,
+                           username=current_user())
 
 @app.route("/share/<filename>", methods=["POST"])
 @require_login
 def share(filename):
     check_csrf()
-    target  = request.form["target_user"]
+    target     = request.form["target_user"]
     permission = request.form["permission"]
-    ok, msg = system.grant_access(current_user(), filename, target, permission)
+    ok, msg    = system.share_file(current_user(), filename, target, permission)
     flash(msg, "success" if ok else "error")
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("permissions", filename=filename))
 
 @app.route("/revoke/<filename>/<target>", methods=["POST"])
 @require_login
@@ -240,44 +237,26 @@ def revoke(filename, target):
     check_csrf()
     ok, msg = system.revoke_access(current_user(), filename, target)
     flash(msg, "success" if ok else "error")
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("permissions", filename=filename))
 
-@app.route("/permissions/<filename>")
-@require_login
-def permissions(filename):
-    acl   = system.get_acl(current_user(), filename)
-    users = [u for u in system.users if u != current_user()]
-    return render_template("permissions.html",
-                           filename=filename,
-                           acl=acl,
-                           users=users,
-                           username=current_user())
-
-# ─── Logs (admin) ────────────────────────────────────────────────────────────
+# ─── Logs ────────────────────────────────────────────────────────────────────
 
 @app.route("/logs")
 @require_login
 def logs():
-    user = system.users.get(current_user(), {})
-    if user.get("role") != "admin":
-        flash("Только для администратора", "error")
+    profile = system.get_profile(current_user())
+    if profile.get("role") != "admin":
+        flash("Faqat admin uchun", "error")
         return redirect(url_for("dashboard"))
     all_logs = system.get_logs(limit=100)
     return render_template("logs.html", logs=all_logs, username=current_user())
-
-# ─── API (JSON) ──────────────────────────────────────────────────────────────
-
-@app.route("/api/files")
-@require_login
-def api_files():
-    return jsonify(system.list_files(current_user()))
 
 # ─── Search ──────────────────────────────────────────────────────────────────
 
 @app.route("/search")
 @require_login
 def search():
-    query = request.args.get("q", "")
+    query   = request.args.get("q", "")
     results = system.search_files(current_user(), query)
     return render_template("search.html", results=results, query=query, username=current_user())
 
@@ -286,7 +265,7 @@ def search():
 @app.route("/stats")
 @require_login
 def stats():
-    data = system.get_stats(current_user())
+    data = system.get_stats()
     return render_template("stats.html", stats=data, username=current_user())
 
 # ─── Share Links ─────────────────────────────────────────────────────────────
@@ -294,19 +273,19 @@ def stats():
 @app.route("/links")
 @require_login
 def links():
-    all_links = system.get_links(current_user())
+    all_links = system.list_links(current_user())
     return render_template("links.html", links=all_links, username=current_user())
 
 @app.route("/create_link/<filename>", methods=["POST"])
 @require_login
 def create_link(filename):
     check_csrf()
-    hours = int(request.form.get("hours", 24))
-    ok, result = system.create_share_link(current_user(), filename, hours)
+    hours    = int(request.form.get("hours", 24))
+    ok, msg, token = system.create_share_link(current_user(), filename, hours)
     if ok:
-        flash(f"Havola yaratildi! Token: {result}", "success")
+        flash(f"✅ Havola yaratildi! Token: {token}", "success")
     else:
-        flash(result, "error")
+        flash(msg, "error")
     return redirect(url_for("links"))
 
 @app.route("/delete_link/<token>", methods=["POST"])
@@ -319,10 +298,14 @@ def delete_link(token):
 
 @app.route("/shared/<token>")
 def shared_download(token):
-    ok, result = system.download_by_link(token)
+    row = system.get_share_link(token)
+    if not row:
+        return render_template("link_error.html", message="Havola topilmadi yoki muddati tugagan"), 404
+    filename = row["filename"]
+    # Admin nomidan yuklab berish
+    ok, msg, data = system.download_file("admin", filename)
     if not ok:
-        return render_template("link_error.html", message=result), 404
-    data, filename = result
+        return render_template("link_error.html", message=msg), 404
     import io
     return send_file(io.BytesIO(data), download_name=filename, as_attachment=True)
 
@@ -334,13 +317,11 @@ def profile():
     if request.method == "POST":
         check_csrf()
         action = request.form.get("action")
-
         if action == "update_profile":
             display_name = request.form.get("display_name", "")
-            email = request.form.get("email", "")
+            email        = request.form.get("email", "")
             ok, msg = system.update_profile(current_user(), display_name, email)
             flash(msg, "success" if ok else "error")
-
         elif action == "change_password":
             old_pw  = request.form.get("old_password", "")
             new_pw  = request.form.get("new_password", "")
@@ -350,15 +331,14 @@ def profile():
             else:
                 ok, msg = system.change_password(current_user(), old_pw, new_pw)
                 flash(msg, "success" if ok else "error")
-
         return redirect(url_for("profile"))
 
     profile_data = system.get_profile(current_user())
-    user_data    = system.users.get(current_user(), {})
+    totp_enabled = profile_data.get("totp_enabled", False)
     return render_template("profile.html",
                            profile=profile_data,
                            username=current_user(),
-                           totp_enabled=user_data.get("totp_enabled", False))
+                           totp_enabled=totp_enabled)
 
 # ─── 2FA Setup ───────────────────────────────────────────────────────────────
 
@@ -369,10 +349,12 @@ def setup_2fa():
     if not ok:
         flash(msg, "error")
         return redirect(url_for("profile"))
-    # QR uchun api.qrserver.com CDN ishlatamiz
     import urllib.parse
     qr_img = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={urllib.parse.quote(otpauth_url)}"
-    secret = system.users[current_user()].get("totp_secret_pending", "")
+    # pending secret
+    from database import fetchone
+    u = fetchone("SELECT totp_pending FROM users WHERE username=%s", (current_user(),))
+    secret = (u or {}).get("totp_pending", "")
     return render_template("2fa_setup.html",
                            qr_img=qr_img,
                            otpauth_url=otpauth_url,
@@ -397,19 +379,16 @@ def disable_2fa():
     flash(msg, "success" if ok else "error")
     return redirect(url_for("profile"))
 
-# ─── Admin: manage users ──────────────────────────────────────────────────────
+# ─── Admin ───────────────────────────────────────────────────────────────────
 
 @app.route("/admin/users")
 @require_login
 def admin_users():
-    user = system.users.get(current_user(), {})
-    if user.get("role") != "admin":
+    profile = system.get_profile(current_user())
+    if profile.get("role") != "admin":
         flash("Faqat admin uchun", "error")
         return redirect(url_for("dashboard"))
-    all_users = [
-        {"username": u, **data}
-        for u, data in system.users.items()
-    ]
+    all_users = system.list_users()
     return render_template("admin_users.html", users=all_users, username=current_user())
 
 @app.route("/admin/change_password", methods=["POST"])
@@ -436,7 +415,13 @@ def admin_change_role():
     flash(msg, "success" if ok else "error")
     return redirect(url_for("admin_users"))
 
+# ─── API ─────────────────────────────────────────────────────────────────────
+
+@app.route("/api/files")
+@require_login
+def api_files():
+    return jsonify(system.list_files(current_user()))
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"🔒 Secure File Share запущен: http://127.0.0.1:{port}")
     app.run(host="0.0.0.0", port=port, debug=False)
