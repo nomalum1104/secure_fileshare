@@ -1,8 +1,5 @@
 """
 database.py — PostgreSQL baza moduli
-
-JSON fayldan PostgreSQL ga to'liq ko'chirish.
-Railway da DATABASE_URL muhit o'zgaruvchisi avtomatik o'rnatiladi.
 """
 
 import os
@@ -12,14 +9,12 @@ from contextlib import contextmanager
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-# Railway PostgreSQL URL ni psycopg2 formatiga o'tkazish
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 
 @contextmanager
 def get_conn():
-    """Kontekst menejeri — ulanish avtomatik yopiladi."""
     conn = psycopg2.connect(DATABASE_URL)
     try:
         yield conn
@@ -32,11 +27,9 @@ def get_conn():
 
 
 def init_db():
-    """Jadvallarni yaratish (birinchi ishga tushirishda)."""
     with get_conn() as conn:
         cur = conn.cursor()
 
-        # Foydalanuvchilar jadvali
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 username        VARCHAR(64) PRIMARY KEY,
@@ -53,7 +46,6 @@ def init_db():
             )
         """)
 
-        # Fayllar jadvali
         cur.execute("""
             CREATE TABLE IF NOT EXISTS files (
                 id              SERIAL PRIMARY KEY,
@@ -65,7 +57,6 @@ def init_db():
             )
         """)
 
-        # ACL jadvali (kim qaysi faylga qanday kirishi mumkin)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS acl (
                 id          SERIAL PRIMARY KEY,
@@ -77,7 +68,6 @@ def init_db():
             )
         """)
 
-        # Havolalar jadvali
         cur.execute("""
             CREATE TABLE IF NOT EXISTS share_links (
                 token       VARCHAR(64)  PRIMARY KEY,
@@ -88,7 +78,6 @@ def init_db():
             )
         """)
 
-        # Audit log jadvali
         cur.execute("""
             CREATE TABLE IF NOT EXISTS audit_log (
                 id          SERIAL PRIMARY KEY,
@@ -100,7 +89,6 @@ def init_db():
             )
         """)
 
-        # Indekslar — tezroq qidirish uchun
         cur.execute("CREATE INDEX IF NOT EXISTS idx_files_owner ON files(owner)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_acl_username ON acl(username)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_audit_username ON audit_log(username)")
@@ -109,8 +97,6 @@ def init_db():
 
         print("✅ PostgreSQL jadvallari tayyor")
 
-
-# ─── Yordamchi funksiyalar ─────────────────────────────────────────────────────
 
 def fetchone(sql: str, params=()) -> dict | None:
     with get_conn() as conn:
@@ -126,7 +112,6 @@ def fetchall(sql: str, params=()) -> list:
         return [dict(r) for r in cur.fetchall()]
 
 def execute(sql: str, params=()) -> int:
-    """INSERT/UPDATE/DELETE. rowcount qaytaradi."""
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(sql, params)
