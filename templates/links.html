@@ -6,8 +6,8 @@
 <!-- Create new link -->
 <div class="card">
   <div class="card-title">➕ Yangi havola yaratish</div>
-  <form method="POST" action="/create_link/{{ request.args.get('file', '') }}">
-    {{ csrf() }}
+  <form method="POST" action="/create_link/{{ request.args.get('file', '') }}" id="link-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:flex-end;">
       <div class="form-group" style="margin:0;">
         <label>Fayl nomi</label>
@@ -26,7 +26,7 @@
         </select>
       </div>
       <button type="submit" class="btn btn-primary"
-        onclick="this.form.action='/create_link/' + document.getElementById('filename-input').value">
+        onclick="document.getElementById('link-form').action='/create_link/' + document.getElementById('filename-input').value">
         Havola yaratish
       </button>
     </div>
@@ -39,13 +39,12 @@
   {% if links %}
   <table>
     <thead>
-      <tr><th>Fayl</th><th>Token</th><th>Holat</th><th>Muddati</th><th>Egasi</th><th>Yuklab olish linki</th><th></th></tr>
+      <tr><th>Fayl</th><th>Holat</th><th>Muddati</th><th>Yuklab olish linki</th><th></th></tr>
     </thead>
     <tbody>
     {% for link in links %}
       <tr>
         <td><strong>{{ link.filename }}</strong></td>
-        <td style="font-size:11px; color:var(--muted);">{{ link.short }}</td>
         <td>
           {% if link.active %}
             <span class="badge badge-green">✓ Faol</span>
@@ -53,20 +52,21 @@
             <span class="badge badge-red">✗ Muddati o'tgan</span>
           {% endif %}
         </td>
-        <td style="color:var(--muted); font-size:12px;">{{ link.expires_at }}</td>
-        <td style="color:var(--muted);">{{ link.created_by }}</td>
+        <td style="color:var(--muted); font-size:12px;">{{ link.expires }}</td>
         <td>
           {% if link.active %}
-            <code style="font-size:11px; color:var(--accent); background:var(--bg3); padding:3px 8px; border-radius:4px;">
-              /shared/{{ link.token }}
-            </code>
+            <a href="{{ request.host_url }}shared/{{ link.token }}"
+               target="_blank"
+               style="font-size:11px; color:var(--accent); background:var(--bg3); padding:3px 8px; border-radius:4px; text-decoration:none; word-break:break-all;">
+              {{ request.host_url }}shared/{{ link.token }}
+            </a>
           {% else %}
             <span style="color:var(--muted); font-size:12px;">—</span>
           {% endif %}
         </td>
         <td>
           <form method="POST" action="/delete_link/{{ link.token }}" style="display:inline;">
-            {{ csrf() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-danger btn-sm">🗑</button>
           </form>
         </td>
@@ -86,8 +86,8 @@
 <div class="card" style="background:rgba(99,102,241,0.05); border-color:rgba(99,102,241,0.2);">
   <div class="card-title">💡 Qanday ishlatish</div>
   <p style="color:var(--muted); font-size:13px; line-height:1.7;">
-    Havola yaratgach, <code style="color:var(--accent);">http://127.0.0.1:5000/shared/TOKEN</code> manzilini
-    istalgan odamga yuboring. Ular login qilmasdan faylni yuklab ola oladi.
+    Havola yaratgach, yuqoridagi linkni istalgan odamga yuboring.
+    Ular login qilmasdan faylni yuklab ola oladi.
     Muddati tugagach havola avtomatik o'chadi.
   </p>
 </div>
